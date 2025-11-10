@@ -1,40 +1,50 @@
 from ollama import Client
-client = Client()
+import json
+import re
+import os
+
+MODEL_NAME = "llama3.1:8b" # @param ["qwen3:0.6b", "deepseek-r1:1.5b", "gemma3:270m", "llama3.1:8b", "mistral:7b", "smollm2:135m"]
+
+# Get OLLAMA_HOST, if specified, or default to host.docker.internal:11434 for Docker environments.
+OLLAMA_URL = os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434")
+
+client = Client(host=OLLAMA_URL)
+
+
+def query_llm_robust(post: str) -> tuple[bool, str]:
+    context = """\
+    You are a professional assistant that translates text in all languages to English text and determines whether a given text is in English or not.
+    - Reply with ONLY the following JSON format: {"is_english": true/false, "translation": "<text>"}.
+    - If the text is English, translation should be identical to the original text.
+    - If the text is non-English, provide a direct English translation.
+    - Do not add any commentary or extra text.
+    - Be robust to dialects, slang, or unintelligible/malformed text.
+    """
+
+    try:
+        response = client.chat(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": context},
+                {"role": "user", "content": post},
+            ]
+        )
+
+        
+        output = response.message.content.strip()
+        match = re.search(r'\{.*\}', output, flags=re.DOTALL)
+        if match:
+            parsed = json.loads(match.group())
+            is_english = bool(parsed.get("is_english", False))
+            translation = str(parsed.get("translation", post))
+        else:
+            raise ValueError("Output not in correct JSON format")
+
+    except Exception:
+        is_english = False
+        translation = post
+
+    return is_english, translation
 
 def translate_content(content: str) -> tuple[bool, str]:
-    if content == "这是一条中文消息":
-        return False, "This is a Chinese message"
-    if content == "Ceci est un message en français":
-        return False, "This is a French message"
-    if content == "Esta es un mensaje en español":
-        return False, "This is a Spanish message"
-    if content == "Esta é uma mensagem em português":
-        return False, "This is a Portuguese message"
-    if content  == "これは日本語のメッセージです":
-        return False, "This is a Japanese message"
-    if content == "이것은 한국어 메시지입니다":
-        return False, "This is a Korean message"
-    if content == "Dies ist eine Nachricht auf Deutsch":
-        return False, "This is a German message"
-    if content == "Questo è un messaggio in italiano":
-        return False, "This is an Italian message"
-    if content == "Это сообщение на русском":
-        return False, "This is a Russian message"
-    if content == "هذه رسالة باللغة العربية":
-        return False, "This is an Arabic message"
-    if content == "यह हिंदी में संदेश है":
-        return False, "This is a Hindi message"
-    if content == "นี่คือข้อความภาษาไทย":
-        return False, "This is a Thai message"
-    if content == "Bu bir Türkçe mesajdır":
-        return False, "This is a Turkish message"
-    if content == "Đây là một tin nhắn bằng tiếng Việt":
-        return False, "This is a Vietnamese message"
-    if content == "Esto es un mensaje en catalán":
-        return False, "This is a Catalan message"
-    if content == "This is an English message":
-        return True, "This is an English message"
-    return True, content
-
-def query_llm_robust(content: str) -> tuple[bool, str]:
-    return translate_content(content)
+    return query_llm_robust(content)
