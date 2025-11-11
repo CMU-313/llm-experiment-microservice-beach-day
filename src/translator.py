@@ -6,7 +6,7 @@ import os
 MODEL_NAME = "llama3.1:8b" # @param ["qwen3:0.6b", "deepseek-r1:1.5b", "gemma3:270m", "llama3.1:8b", "mistral:7b", "smollm2:135m"]
 
 # Get OLLAMA_HOST, if specified, or default to host.docker.internal:11434 for Docker environments.
-OLLAMA_URL = os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434")
+OLLAMA_URL = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")
 
 client = Client(host=OLLAMA_URL)
 
